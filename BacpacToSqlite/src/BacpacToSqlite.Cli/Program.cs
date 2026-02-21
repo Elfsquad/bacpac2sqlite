@@ -72,17 +72,19 @@ static int Run(Options options)
         var modelEntry = archive.FindEntryByName("model.xml")
             ?? throw new InvalidOperationException("model.xml not found in BACPAC");
 
-        Dictionary<(string Schema, string Table), TablePlan> tables;
+        ModelParseResult model;
         using (var modelStream = archive.OpenEntry(modelEntry.FullName))
         {
-            tables = ModelXmlParser.Parse(modelStream);
+            model = ModelXmlParser.Parse(modelStream);
         }
 
         if (options.Verbose)
-            Console.WriteLine($"Parsed {tables.Count} tables from model.xml");
+        {
+            Console.WriteLine($"Parsed {model.Tables.Count} tables, {model.Indices.Count} indices, {model.Views.Count} views from model.xml");
+        }
 
         // Locate BCP data
-        var mappings = TableDataLocator.MapBcpEntriesToTables(archive, tables);
+        var mappings = TableDataLocator.MapBcpEntriesToTables(archive, model.Tables);
 
         if (options.Verbose)
             Console.WriteLine($"Found BCP data for {mappings.Count} tables");
@@ -90,7 +92,7 @@ static int Run(Options options)
         // Inspect mode
         if (options.Inspect)
         {
-            RunInspect(archive, tables, mappings, options);
+            RunInspect(archive, model, mappings, options);
             return 0;
         }
 
@@ -173,6 +175,25 @@ static int Run(Options options)
             }
         }
 
+        // Create indices (after data import for better performance)
+        var includedTables = filteredMappings.Select(m => m.Table.Name).ToHashSet();
+        var indexCount = SqliteSchemaCreator.CreateIndices(connection, model.Indices, includedTables);
+        if (indexCount > 0 || options.Verbose)
+            Console.WriteLine($"  Created {indexCount} indices");
+
+        // Create views
+        if (model.Views.Count > 0)
+        {
+            var (viewsCreated, viewsFailed) = SqliteSchemaCreator.CreateViews(connection, model.Views);
+            if (viewsCreated > 0 || viewsFailed > 0 || options.Verbose)
+            {
+                Console.Write($"  Created {viewsCreated} views");
+                if (viewsFailed > 0)
+                    Console.Write($" ({viewsFailed} skipped due to SQL Server-specific syntax)");
+                Console.WriteLine();
+            }
+        }
+
         inserter.RestoreForeignKeys();
 
         Console.WriteLine();
@@ -195,7 +216,7 @@ static int Run(Options options)
 
 static void RunInspect(
     BacpacArchiveReader archive,
-    Dictionary<(string Schema, string Table), TablePlan> tables,
+    ModelParseResult model,
     IReadOnlyList<TableMapping> mappings,
     Options options)
 {
@@ -208,7 +229,7 @@ static void RunInspect(
     Console.WriteLine();
 
     Console.WriteLine("=== Schema Summary ===");
-    foreach (var (key, table) in tables.OrderBy(t => t.Key.Schema).ThenBy(t => t.Key.Table))
+    foreach (var (key, table) in model.Tables.OrderBy(t => t.Key.Schema).ThenBy(t => t.Key.Table))
     {
         Console.WriteLine($"  {table.Schema}.{table.Name} ({table.Columns.Count} columns)");
         if (options.Verbose)
@@ -221,6 +242,37 @@ static void RunInspect(
         }
     }
     Console.WriteLine();
+
+    // Show indices
+    if (model.Indices.Count > 0)
+    {
+        Console.WriteLine($"=== Indices ({model.Indices.Count}) ===");
+        foreach (var index in model.Indices.OrderBy(i => i.TableName).ThenBy(i => i.Name))
+        {
+            var unique = index.IsUnique ? "UNIQUE " : "";
+            var cols = string.Join(", ", index.ColumnNames);
+            Console.WriteLine($"  {unique}{index.Name} ON {index.Schema}.{index.TableName} ({cols})");
+        }
+        Console.WriteLine();
+    }
+
+    // Show views
+    if (model.Views.Count > 0)
+    {
+        Console.WriteLine($"=== Views ({model.Views.Count}) ===");
+        foreach (var view in model.Views.OrderBy(v => v.Schema).ThenBy(v => v.Name))
+        {
+            Console.WriteLine($"  {view.Schema}.{view.Name}");
+            if (options.Verbose)
+            {
+                var preview = view.SelectStatement.Length > 200
+                    ? view.SelectStatement[..200] + "..."
+                    : view.SelectStatement;
+                Console.WriteLine($"    {preview}");
+            }
+        }
+        Console.WriteLine();
+    }
 
     Console.WriteLine("=== Table -> BCP Mapping ===");
     foreach (var mapping in mappings.OrderBy(m => m.Table.Schema).ThenBy(m => m.Table.Name))

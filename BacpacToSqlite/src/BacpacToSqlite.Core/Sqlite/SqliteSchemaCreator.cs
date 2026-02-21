@@ -17,6 +17,60 @@ public static class SqliteSchemaCreator
         }
     }
 
+    public static int CreateIndices(
+        SqliteConnection connection,
+        IReadOnlyList<IndexPlan> indices,
+        HashSet<string>? includedTables = null)
+    {
+        int created = 0;
+        foreach (var index in indices)
+        {
+            // Skip indices for tables that weren't included in the conversion
+            if (includedTables != null && !includedTables.Contains(index.TableName))
+                continue;
+
+            var ddl = GenerateCreateIndex(index);
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = ddl;
+            try
+            {
+                cmd.ExecuteNonQuery();
+                created++;
+            }
+            catch (SqliteException)
+            {
+                // Index creation can fail if table doesn't exist or column names don't match;
+                // skip silently since we log the count at the end
+            }
+        }
+        return created;
+    }
+
+    public static (int created, int failed) CreateViews(
+        SqliteConnection connection,
+        IReadOnlyList<ViewPlan> views)
+    {
+        int created = 0;
+        int failed = 0;
+        foreach (var view in views)
+        {
+            var ddl = GenerateCreateView(view);
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = ddl;
+            try
+            {
+                cmd.ExecuteNonQuery();
+                created++;
+            }
+            catch (SqliteException)
+            {
+                // Views using SQL Server-specific syntax will fail; that's expected
+                failed++;
+            }
+        }
+        return (created, failed);
+    }
+
     public static string GenerateCreateTable(TablePlan table)
     {
         var sb = new StringBuilder();
@@ -37,6 +91,18 @@ public static class SqliteSchemaCreator
 
         sb.Append(");");
         return sb.ToString();
+    }
+
+    public static string GenerateCreateIndex(IndexPlan index)
+    {
+        var unique = index.IsUnique ? "UNIQUE " : "";
+        var columns = string.Join(", ", index.ColumnNames.Select(c => $"\"{c}\""));
+        return $"CREATE {unique}INDEX IF NOT EXISTS \"{index.Name}\" ON \"{index.TableName}\" ({columns});";
+    }
+
+    public static string GenerateCreateView(ViewPlan view)
+    {
+        return $"CREATE VIEW IF NOT EXISTS \"{view.Name}\" AS {view.SelectStatement};";
     }
 
     private static string MapToSqliteType(string sqlType)
