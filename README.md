@@ -1,10 +1,10 @@
 # BacpacToSqlite
 
-A .NET 8 command-line tool that converts Microsoft SQL Server `.bacpac` exports to SQLite databases.
+A .NET 10 command-line tool that converts Microsoft SQL Server `.bacpac` exports to SQLite databases.
 
 ## Installation
 
-Requires [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). No build step needed — the wrapper script handles it.
+Requires [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). No build step needed — the wrapper script handles it.
 
 ## Usage
 
