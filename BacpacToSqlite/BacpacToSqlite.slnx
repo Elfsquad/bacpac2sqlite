@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BacpacToSqlite.Cli/BacpacToSqlite.Cli.csproj" />
+    <Project Path="src/BacpacToSqlite.Core/BacpacToSqlite.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BacpacToSqlite.Tests/BacpacToSqlite.Tests.csproj" />
+  </Folder>
+</Solution>
