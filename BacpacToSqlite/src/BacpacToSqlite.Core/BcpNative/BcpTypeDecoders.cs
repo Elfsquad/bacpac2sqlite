@@ -157,7 +157,7 @@ public static class BcpTypeDecoders
     private static object DecodeDecimalWithScale(ReadOnlySpan<byte> data, int precision, int scale)
     {
         // BACPAC BCP decimal: 1 byte precision, 1 byte scale, 1 byte sign (1=pos, 0=neg), then value bytes LE
-        if (data.Length < 4) return "0";
+        if (data.Length < 4) return 0m;
         // First two bytes are precision and scale (redundant with column metadata, skip them)
         return DecodeDecimalCore(data[2..], precision, scale);
     }
@@ -165,7 +165,7 @@ public static class BcpTypeDecoders
     private static object DecodeDecimal(ReadOnlySpan<byte> data, int precision, int scale)
     {
         // Standard BCP decimal: 1 byte sign (1=pos, 0=neg), then value bytes LE
-        if (data.Length < 2) return "0";
+        if (data.Length < 2) return 0m;
         return DecodeDecimalCore(data, precision, scale);
     }
 
@@ -183,17 +183,25 @@ public static class BcpTypeDecoders
 
         if (sign == 0) magnitude = -magnitude;
 
-        // Apply scale
+        // Build string representation for parsing
+        string str;
         if (scale > 0)
         {
             var divisor = System.Numerics.BigInteger.Pow(10, scale);
             var intPart = System.Numerics.BigInteger.DivRem(
                 System.Numerics.BigInteger.Abs(magnitude), divisor, out var remainder);
             var negSign = magnitude < 0 ? "-" : "";
-            return $"{negSign}{intPart}.{System.Numerics.BigInteger.Abs(remainder).ToString().PadLeft(scale, '0')}";
+            str = $"{negSign}{intPart}.{System.Numerics.BigInteger.Abs(remainder).ToString().PadLeft(scale, '0')}";
+        }
+        else
+        {
+            str = magnitude.ToString();
         }
 
-        return magnitude.ToString();
+        // Return as C# decimal; fall back to double for very high precision values
+        if (decimal.TryParse(str, NumberStyles.Number, CultureInfo.InvariantCulture, out var dec))
+            return dec;
+        return double.Parse(str, CultureInfo.InvariantCulture);
     }
 
     private static object DecodeMoney(ReadOnlySpan<byte> data)
@@ -202,13 +210,13 @@ public static class BcpTypeDecoders
         int hi = BinaryPrimitives.ReadInt32LittleEndian(data);
         uint lo = BinaryPrimitives.ReadUInt32LittleEndian(data[4..]);
         long val = ((long)hi << 32) | lo;
-        return (val / 10000m).ToString(CultureInfo.InvariantCulture);
+        return val / 10000m;
     }
 
     private static object DecodeSmallMoney(ReadOnlySpan<byte> data)
     {
         int val = BinaryPrimitives.ReadInt32LittleEndian(data);
-        return (val / 10000m).ToString(CultureInfo.InvariantCulture);
+        return val / 10000m;
     }
 
     private static long ReadTimeValue(ReadOnlySpan<byte> data, int scale)

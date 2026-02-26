@@ -19,7 +19,7 @@ public class SqliteInsertionTests
                 "Id" INTEGER NOT NULL,
                 "TenantId" TEXT NOT NULL,
                 "CreatedAt" TEXT NOT NULL,
-                "Price" TEXT NOT NULL,
+                "Price" REAL NOT NULL,
                 "Payload" BLOB NULL,
                 "Title" TEXT NULL,
                 "IsActive" INTEGER NOT NULL,
@@ -31,11 +31,11 @@ public class SqliteInsertionTests
 
         var plan = TestPlans.KitchenSink();
 
-        // Data matches our decoder output format: strings for guid/datetime/decimal
+        // Data matches our decoder output format: strings for guid/datetime, decimal for prices
         var rows = new List<object?[]>
         {
-            new object?[] { 1L, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "2024-01-02T03:04:05.1234567Z", "123.4567", null, null, 1L, null },
-            new object?[] { 2L, "ffffffff-1111-2222-3333-444444444444", "2024-01-02T03:04:05.0000000Z", "0.0001", new byte[]{0xDE, 0xAD}, "", 0L, 9223372036854775807L },
+            new object?[] { 1L, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "2024-01-02T03:04:05.1234567Z", 123.4567m, null, null, 1L, null },
+            new object?[] { 2L, "ffffffff-1111-2222-3333-444444444444", "2024-01-02T03:04:05.0000000Z", 0.0001m, new byte[]{0xDE, 0xAD}, "", 0L, 9223372036854775807L },
         };
 
         CoreAdapters.InsertRows(conn, plan, rows);
@@ -50,7 +50,7 @@ public class SqliteInsertionTests
         r.GetInt64(0).Should().Be(1);
         r.GetString(1).Should().Be("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
         r.GetString(2).Should().Be("2024-01-02T03:04:05.1234567Z");
-        r.GetString(3).Should().Be("123.4567");
+        r.GetDouble(3).Should().Be(123.4567);
         r.IsDBNull(4).Should().BeTrue();  // NULL payload
         r.IsDBNull(5).Should().BeTrue();  // NULL title
         r.GetInt64(6).Should().Be(1);
@@ -60,7 +60,7 @@ public class SqliteInsertionTests
         r.Read().Should().BeTrue();
         r.GetInt64(0).Should().Be(2);
         r.GetString(1).Should().Be("ffffffff-1111-2222-3333-444444444444");
-        r.GetString(3).Should().Be("0.0001");
+        r.GetDouble(3).Should().Be(0.0001);
         r.GetInt64(4).Should().Be(2);     // blob length = 2
         r.GetString(5).Should().Be("");   // empty string preserved (not NULL)
         r.GetInt64(6).Should().Be(0);

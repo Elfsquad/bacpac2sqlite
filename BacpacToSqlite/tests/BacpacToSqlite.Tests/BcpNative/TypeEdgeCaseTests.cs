@@ -28,9 +28,9 @@ public class TypeEdgeCaseTests
         dt.Should().Contain("2024-01-02");
         dt.Should().Contain("03:04:05");
 
-        // Price - our decoder returns decimal as string
-        first[3].Should().BeOfType<string>();
-        ((string)first[3]!).Should().Be("123.4567");
+        // Price - our decoder returns decimal as C# decimal
+        first[3].Should().BeOfType<decimal>();
+        ((decimal)first[3]!).Should().Be(123.4567m);
 
         // Payload - null
         first[4].Should().BeNull();
@@ -117,12 +117,12 @@ public class TypeEdgeCaseTests
         var rows = CoreAdapters.DecodeRows([data], plan, format).ToList();
 
         // Row 2: price = 0.0001
-        ((string)rows[1][3]!).Should().Be("0.0001");
+        ((decimal)rows[1][3]!).Should().Be(0.0001m);
 
         // Row 3: price = 99999.9999
-        ((string)rows[2][3]!).Should().Be("99999.9999");
+        ((decimal)rows[2][3]!).Should().Be(99999.9999m);
 
         // Row 4: price = 1.0000
-        ((string)rows[3][3]!).Should().Be("1.0000");
+        ((decimal)rows[3][3]!).Should().Be(1.0000m);
     }
 }

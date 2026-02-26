@@ -124,9 +124,9 @@ public static class SqliteSchemaCreator
             "nvarchar" or "varchar" or "nchar" or "char" or "text" or "ntext" => "TEXT",
             "xml" => "TEXT",
 
-            // Decimal/numeric stored as TEXT to preserve precision
-            "decimal" or "numeric" => "TEXT",
-            "money" or "smallmoney" => "TEXT",
+            // Decimal/numeric stored as REAL
+            "decimal" or "numeric" => "REAL",
+            "money" or "smallmoney" => "REAL",
 
             // Date/time types stored as TEXT (ISO 8601)
             "date" => "TEXT",
