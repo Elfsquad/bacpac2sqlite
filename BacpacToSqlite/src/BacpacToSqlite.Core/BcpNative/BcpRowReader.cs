@@ -2,16 +2,12 @@ namespace BacpacToSqlite.Core.BcpNative;
 
 public sealed class BcpRowReader : IDisposable
 {
-    private readonly Stream _stream;
     private readonly BinaryReader _reader;
 
     public BcpRowReader(Stream stream)
     {
-        _stream = stream;
         _reader = new BinaryReader(stream);
     }
-
-    public bool EndOfStream => _stream.Position >= _stream.Length;
 
     public object? ReadColumn(ColumnFormat format, int precision, int scale)
     {

@@ -11,11 +11,9 @@ public static class BcpStreamDecoder
     {
         foreach (var stream in bcpPartStreams)
         {
-            // Buffer the stream into a MemoryStream so we can check position/length
-            using var buffered = CopyToSeekable(stream);
-            using var reader = new BcpRowReader(buffered);
+            using var reader = new BcpRowReader(stream);
 
-            while (!reader.EndOfStream)
+            while (true)
             {
                 object?[] row;
                 try
@@ -47,11 +45,4 @@ public static class BcpStreamDecoder
         return row;
     }
 
-    private static MemoryStream CopyToSeekable(Stream source)
-    {
-        var ms = new MemoryStream();
-        source.CopyTo(ms);
-        ms.Position = 0;
-        return ms;
-    }
 }
