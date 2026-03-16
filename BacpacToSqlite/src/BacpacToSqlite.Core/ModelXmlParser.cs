@@ -77,10 +77,11 @@ public static class ModelXmlParser
             var isUnique = type is "SqlPrimaryKeyConstraint" or "SqlUniqueConstraint"
                 || GetBoolProperty(indexEl, "IsUnique");
 
-            // Get the defining table from Relationship[@Name="DefiningTable"]
+            // Get the defining table: PK/unique constraints use "DefiningTable", regular indices use "IndexedObject"
             var definingTableRef = indexEl.Elements()
                 .Where(e => e.Name.LocalName == "Relationship" &&
-                            e.Attribute("Name")?.Value == "DefiningTable")
+                            (e.Attribute("Name")?.Value == "DefiningTable" ||
+                             e.Attribute("Name")?.Value == "IndexedObject"))
                 .SelectMany(r => r.Elements().Where(x => x.Name.LocalName == "Entry"))
                 .SelectMany(entry => entry.Elements().Where(x => x.Name.LocalName == "References"))
                 .Select(refs => refs.Attribute("Name")?.Value)
